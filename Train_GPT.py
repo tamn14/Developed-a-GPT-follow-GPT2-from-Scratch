@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from Hellaswag import render_example, iterate_examples
-from VietName_Legal import DATA_CACHE_DIR, share_size, fw
 from Read_data import DataLoaderLite
 from GPT import GPT, GPTConfig
 from Helper import get_most_likely_row
@@ -59,8 +58,8 @@ if torch.cuda.is_available():
 
 enc = tiktoken.get_encoding("gpt2")
 
-total_batch_size = 300000 # this is the total batch size we want to process before we do an optimizer step. it is not the same as the micro batch size, which is the batch size we can fit on a single GPU. we will accumulate gradients over multiple micro batches before we do an optimizer step, and total_batch_size = micro_batch_size * grad_accum_steps * ddp_world_size
-B = 16 # micro batch size
+total_batch_size = 262144   # this is the total batch size we want to process before we do an optimizer step. it is not the same as the micro batch size, which is the batch size we can fit on a single GPU. we will accumulate gradients over multiple micro batches before we do an optimizer step, and total_batch_size = micro_batch_size * grad_accum_steps * ddp_world_size
+B = 8 # micro batch size
 T = 1024 # sequence length
 assert total_batch_size % (B * T * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
 grad_accum_steps = total_batch_size // (B * T * ddp_world_size)
@@ -85,8 +84,8 @@ raw_model = model.module if ddp else model # always contains the "raw" unwrapped
 
 max_lr = 6e-4
 min_lr = max_lr * 0.1
-max_steps = 572 * 5 # we will do 5 epochs of training, with 572 steps per epoch (572 is the number of steps in one epoch, calculated as number of tokens in train split divided by total_batch_size)
-warmup_steps = 0.04 * max_steps
+max_steps = 5720  # we will do 5 epochs of training, with 572 steps per epoch (572 is the number of steps in one epoch, calculated as number of tokens in train split divided by total_batch_size)
+warmup_steps = int(0.04 * max_steps)
 
 
 def get_lr(it):
@@ -187,7 +186,7 @@ for step in range(max_steps):
         model.eval()
         num_return_sequences = 4
         max_length = 32
-        tokens = enc.encode("Hello, I'm a language model,")
+        tokens = enc.encode("Luật pháp Việt Nam quy định")
         tokens = torch.tensor(tokens, dtype=torch.long)
         tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)
         xgen = tokens.to(device)
